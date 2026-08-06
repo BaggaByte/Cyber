@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Report</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            font-family: Arial, sans-serif;
+            color: #ffffff;
+        }
+        .container {
+            width: 80%;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #333333;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 24px;
+        }
+        .badge.status-passed {
+            background-color: #34c759;
+        }
+        .badge.status-critical {
+            background-color: #ff3737;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #cccccc;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #333333;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Security Report</h1>
+        <div class="badge status-passed">STATUS: PASSED / SECURE</div>
+        <h2>Executive Summary</h2>
+        <p>The security posture of the application is hardened and robust, demonstrating a strong commitment to security and compliance.</p>
+        <h2>Technical Scope</h2>
+        <p>The automated DAST engine actively fuzzed the endpoints for misconfigurations and exposures, and all defenses held, indicating a secure and resilient application.</p>
+        <h2>OWASP Top 10</h2>
+        <p>The application demonstrates strong baseline defenses against common threats, including Injection, Broken Access Control, and other critical vulnerabilities.</p>
+        <h2>ISO 27001</h2>
+        <p>This automated scan satisfies continuous vulnerability management and security testing requirements, specifically Control A.12.6.1.</p>
+        <h2>Raw Findings</h2>
+        <table>
+            <tr>
+                <th>Severity</th>
+                <th>Category</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td colspan="3">No vulnerabilities detected.</td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>

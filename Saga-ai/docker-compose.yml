@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # 1. The FastAPI & Semgrep AI Backend
+  aegis-backend:
+    build: .
+    container_name: aegis_backend
+    ports:
+      - "8090:8001"
+    extra_hosts:
+      # This allows the Docker container to talk to your Windows Ollama instance
+      - "host.docker.internal:host-gateway"
+    environment:
+      # Use Groq API Key for remote model inference
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    volumes:
+      # Mount the database directory so your scan history survives container restarts
+      - ./aegis_chroma_db:/app/aegis_chroma_db
+      # Mount the demo_code folder so the container has something to scan
+      - ./demo_code:/app/demo_code
+
+  # 2. The UI Dashboard
+  aegis-frontend:
+    image: python:3.10-slim
+    container_name: aegis_frontend
+    working_dir: /frontend
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount your HTML file directly into the web server
+      - ./frontend:/frontend
+    command: python -m http.server 8080

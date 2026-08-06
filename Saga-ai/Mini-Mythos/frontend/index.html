@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- Primary Meta Tags -->
+  <title>Nexus AI | Autonomous DevSecOps & GRC</title>
+  <meta name="title" content="Nexus AI | Autonomous DevSecOps & GRC" />
+  <meta name="description"
+    content="Enterprise-grade autonomous vulnerability mapping and ISO compliance orchestration. Real-time threat intelligence meets zero-trust architecture." />
+  <meta name="keywords"
+    content="DevSecOps, GRC, ISO 27001, vulnerability management, autonomous security, zero-trust" />
+  <meta name="author" content="Nexus AI" />
+  <meta name="theme-color" content="#030712" />
+  <meta name="color-scheme" content="dark" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Nexus AI | Autonomous DevSecOps & GRC" />
+  <meta property="og:description"
+    content="Enterprise-grade autonomous vulnerability mapping and ISO compliance orchestration." />
+  <meta property="og:image" content="/og-image.png" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:title" content="Nexus AI | Autonomous DevSecOps & GRC" />
+  <meta property="twitter:description"
+    content="Enterprise-grade autonomous vulnerability mapping and ISO compliance orchestration." />
+  <meta property="twitter:image" content="/og-image.png" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop offset=%220%22 stop-color=%22%2322c55e%22/><stop offset=%221%22 stop-color=%22%2306b6d4%22/></linearGradient></defs><text y=%22.9em%22 font-size=%2290%22 fill=%22url(%23g)%22>⚡</text></svg>" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <!-- Preconnect for performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    /* CSS Reset & Base */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --color-bg: #030712;
+      --color-bg-secondary: #0a0f1e;
+      --color-primary: #22c55e;
+      --color-primary-glow: rgba(34, 197, 94, 0.4);
+      --color-secondary: #06b6d4;
+      --color-secondary-glow: rgba(6, 182, 212, 0.4);
+      --color-text: #e2e8f0;
+      --color-text-muted: #64748b;
+      --color-border: rgba(34, 197, 94, 0.2);
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-mono);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Animated background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        linear-gradient(var(--color-border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+      background-size: 50px 50px;
+      opacity: 0.3;
+      z-index: -2;
+      animation: gridMove 20s linear infinite;
+    }
+
+    @keyframes gridMove {
+      0% {
+        transform: translate(0, 0);
+      }
+
+      100% {
+        transform: translate(50px, 50px);
+      }
+    }
+
+    /* Gradient orbs */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background:
+        radial-gradient(circle at 20% 30%, var(--color-primary-glow) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, var(--color-secondary-glow) 0%, transparent 40%);
+      z-index: -1;
+      animation: orbFloat 15s ease-in-out infinite;
+    }
+
+    @keyframes orbFloat {
+
+      0%,
+      100% {
+        transform: translate(0, 0) rotate(0deg);
+      }
+
+      50% {
+        transform: translate(-20px, 20px) rotate(180deg);
+      }
+    }
+
+    /* Root container */
+    #root {
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* Loading state */
+    #root:empty {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    #root:empty::before {
+      content: '';
+      width: 60px;
+      height: 60px;
+      border: 3px solid transparent;
+      border-top-color: var(--color-primary);
+      border-right-color: var(--color-secondary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    #root:empty::after {
+      content: '[ INITIALIZING NEXUS CORE ]';
+      letter-spacing: 0.3em;
+      font-size: 0.875rem;
+      color: var(--color-primary);
+      text-transform: uppercase;
+      animation: loadingPulse 2s ease-in-out infinite;
+      position: relative;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes loadingPulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        text-shadow: 0 0 10px var(--color-primary-glow);
+      }
+
+      50% {
+        opacity: 0.5;
+        text-shadow: 0 0 20px var(--color-primary-glow);
+      }
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--color-bg-secondary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--color-primary);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-secondary);
+    }
+
+    /* Selection styling */
+    ::selection {
+      background-color: var(--color-primary);
+      color: var(--color-bg);
+    }
+
+    /* Focus visible for accessibility */
+    :focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    /* Noscript fallback */
+    noscript {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    noscript div {
+      max-width: 600px;
+      padding: 2rem;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: var(--color-bg-secondary);
+    }
+
+    noscript h1 {
+      color: var(--color-primary);
+      margin-bottom: 1rem;
+      font-family: var(--font-sans);
+    }
+
+    noscript p {
+      color: var(--color-text-muted);
+      margin-bottom: 1rem;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+      body::before {
+        background-size: 30px 30px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root" role="main" aria-label="Nexus AI Application"></div>
+
+  <noscript>
+    <div>
+      <h1>⚡ JavaScript Required</h1>
+      <p>Nexus AI requires JavaScript to function. Please enable JavaScript in your browser settings to access the
+        autonomous DevSecOps platform.</p>
+      <p><a href="https://enable-javascript.com" style="color: var(--color-primary);">Learn how to enable JavaScript</a>
+      </p>
+    </div>
+  </noscript>
+
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>

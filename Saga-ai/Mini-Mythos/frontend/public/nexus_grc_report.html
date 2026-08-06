@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Report for http://demo.testfire.net/</title>
+    <style>
+        body {
+            background-color: #2f2f2f;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            padding: 20px;
+            margin: 20px;
+            background-color: #4f4f4f;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.5);
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ffffff;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #6f6f6f;
+        }
+        .badge {
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .passed {
+            background-color: #33cc33;
+            color: #ffffff;
+        }
+        .critical {
+            background-color: #cc3333;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Security Report for http://demo.testfire.net/</h1>
+        <div class="badge passed">STATUS: PASSED / SECURE</div>
+        <h2>Executive Summary</h2>
+        <p>The application http://demo.testfire.net/ demonstrates a hardened security posture, with no critical vulnerabilities detected during the automated scan.</p>
+        <h2>Technical Scope</h2>
+        <p>The automated DAST engine actively fuzzed the endpoints for misconfigurations and exposures, and all defenses held. The scan included nuclei fuzzing and custom fuzzer tests, which did not detect any active logic vulnerabilities (SQLi, XSS, SSTI, etc.).</p>
+        <h2>OWASP Top 10</h2>
+        <p>The application demonstrates strong baseline defenses, with no findings related to the OWASP Top 10 vulnerabilities.</p>
+        <h2>ISO 27001</h2>
+        <p>This automated scan satisfies continuous vulnerability management (Control A.12.6.1) requirements, indicating a robust security posture.</p>
+        <h2>Scan Results</h2>
+        <table>
+            <tr>
+                <th>Scan Type</th>
+                <th>Result</th>
+            </tr>
+            <tr>
+                <td>Nuclei Fuzzing</td>
+                <td>0 findings</td>
+            </tr>
+            <tr>
+                <td>Custom Fuzzer</td>
+                <td>No active logic vulnerabilities detected</td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>

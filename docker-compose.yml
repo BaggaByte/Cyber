@@ -1,0 +1,291 @@
+services:
+  # ── Primary Relational Database (with PGVector) ───────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: sentinel-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sentinel_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # ── Caching, Sessions, Celery Broker ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: sentinel-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # ── Layer 6: Knowledge Graph Database ────────────────────────────────────────
+  neo4j:
+    image: neo4j:5
+    container_name: sentinel-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/sentinel_neo4j
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+
+  # ── Evidence Engine: MinIO ───────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: sentinel-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+  # ── Development Database Management ──────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: sentinel-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@sentinel.ai
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ── Layer 12: Observability — Prometheus ──────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sentinel-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # ── Layer 12: Observability — Grafana ────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sentinel-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: sentinel
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ── API Service ──────────────────────────────────────────────────────────────
+  api:
+    build: ./backend
+    container_name: sentinel-api
+    command: bash -c "alembic upgrade head && python create_default_user.py && uvicorn main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sentinel_db
+      - REDIS_URL=redis://redis:6379/0
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=sentinel_neo4j
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - MINIO_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    depends_on:
+      - postgres
+      - redis
+      - neo4j
+    restart: unless-stopped
+
+  # ── Tool Execution Worker ────────────────────────────────────────────────────
+  worker:
+    build: ./backend
+    container_name: sentinel-worker
+    command: ["celery", "-A", "worker", "worker", "--loglevel=info"]
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sentinel_db
+      - REDIS_URL=redis://redis:6379/0
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=sentinel_neo4j
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - MINIO_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Mount Docker socket for sandboxing
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+      - neo4j
+    restart: unless-stopped
+
+  # ── Layer 12: Observability — OpenSearch (Search Index) ──────────────────────
+  opensearch:
+    image: opensearchproject/opensearch:latest
+    container_name: sentinel-opensearch
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - DISABLE_SECURITY_PLUGIN=true
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    restart: unless-stopped
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:latest
+    container_name: sentinel-opensearch-dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    depends_on:
+      - opensearch
+    restart: unless-stopped
+
+  # ── Tool Execution Scheduler (Celery Beat) ───────────────────────────────────
+  celery-beat:
+    build: ./backend
+    container_name: sentinel-celery-beat
+    command: ["celery", "-A", "worker", "beat", "--loglevel=info"]
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sentinel_db
+      - REDIS_URL=redis://redis:6379/0
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=sentinel_neo4j
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - MINIO_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # ── Layer 12: Observability — Loki & Promtail ────────────────────────────────
+  loki:
+    image: grafana/loki:latest
+    container_name: sentinel-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: sentinel-promtail
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    restart: unless-stopped
+
+  # ── Aegis AI Services ────────────────────────────────────────────────────────
+  aegis-backend:
+    build: ./Saga-ai
+    container_name: aegis_backend
+    ports:
+      - "8090:8001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    volumes:
+      - ./Saga-ai/aegis_chroma_db:/app/aegis_chroma_db
+      - ./Saga-ai/demo_code:/app/demo_code
+    restart: unless-stopped
+
+  aegis-frontend:
+    image: python:3.10-slim
+    container_name: aegis_frontend
+    working_dir: /frontend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Saga-ai/frontend:/frontend
+    command: python -m http.server 8080
+    restart: unless-stopped
+
+  # ── Sentinel & Nexus Frontends ───────────────────────────────────────────────
+  sentinel-frontend:
+    build: ./frontend
+    container_name: sentinel_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+
+  nexus-frontend:
+    build: ./Saga-ai/Mini-Mythos/frontend
+    container_name: nexus_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./Saga-ai/Mini-Mythos/frontend:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  # ── Saga Enterprise Proxy ────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: saga_proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./Saga-ai:/usr/share/nginx/html:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - aegis-frontend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  redis_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  opensearch_data:
