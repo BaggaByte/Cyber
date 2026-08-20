@@ -1,0 +1,25 @@
+# Environment variables
+.env
+.env.local
+*.env
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Build outputs
+.next/
+dist/
+build/
+
+# Storage & Databases
+aegis_chroma_db/
+postgres_data/
+neo4j_data/
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
