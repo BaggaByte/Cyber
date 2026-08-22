@@ -1,0 +1,8 @@
+{
+  "name": "SentinelAI",
+  "description": "Autonomous security operations center for attack surface mapping, vulnerability scanning, and threat response.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

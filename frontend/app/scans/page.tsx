@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import { Shield, ChevronRight, Clock, CheckCircle, XCircle, Activity, ExternalLink } from "lucide-react";
+import { Shield, Clock, CheckCircle, XCircle, Activity, ExternalLink } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
 const API = "";
@@ -18,7 +18,7 @@ function RiskBadge({ score }: { score: string | null }) {
 }
 
 
-function ScanRow({ scan, onClick }: { scan: any; onClick: () => void }) {
+function ScanRow({ scan, onClick }: { scan: Record<string, unknown>; onClick: () => void }) {
   return (
     <tr onClick={onClick} style={{ cursor: "pointer", borderTop: "1px solid var(--border)" }}
       onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-card-hover)")}
@@ -54,7 +54,7 @@ function ScanRow({ scan, onClick }: { scan: any; onClick: () => void }) {
 }
 
 export default function ScansPage() {
-  const [scans, setScans] = useState<any[]>([]);
+  const [scans, setScans] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const token = Cookies.get("token");
   const router = useRouter();

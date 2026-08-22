@@ -1,7 +1,11 @@
 FROM node:20-alpine
+
 WORKDIR /app
-COPY package.json package-lock.json ./
+
+COPY package.json package-lock.json* ./
 RUN npm install
+
 COPY . .
-EXPOSE 3000
+
+# Assuming it's a Next.js app in development mode for the sentinel-frontend based on the compose file.
 CMD ["npm", "run", "dev"]

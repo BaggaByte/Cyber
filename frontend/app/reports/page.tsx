@@ -1,13 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Cookies from "js-cookie";
 import {
-  BarChart2, TrendingUp, Target, Shield, Download, RefreshCw,
-  AlertTriangle, CheckCircle, Cpu, Globe, Layers, Activity
+  Download, RefreshCw, AlertTriangle, Activity, Target, Shield, TrendingUp, Cpu
 } from "lucide-react";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Cell, PieChart, Pie, Legend
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
+  AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, Legend
 } from "recharts";
 import Sidebar from "../components/Sidebar";
 
@@ -18,12 +17,17 @@ const RISK_COLORS: Record<string, string> = {
   MEDIUM: "#f04e23", LOW: "#10b981", INFO: "#94a3b8",
 };
 
-const TOOL_COLORS = [
-  "var(--accent-primary)", "#3b82f6", "#8b5cf6",
-  "#10b981", "#f59e0b", "#06b6d4"
-];
+const TOOL_COLORS = ["#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#fb923c"];
 
-function MetricCard({ label, value, sub, icon: Icon, color }: any) {
+interface MetricCardProps {
+  label: string;
+  value: React.ReactNode;
+  sub?: string;
+  icon: React.ElementType;
+  color: string;
+}
+
+function MetricCard({ label, value, sub, icon: Icon, color }: MetricCardProps) {
   return (
     <div className="glass-card hover-lift" style={{ padding: 24, display: "flex", alignItems: "center", gap: 18 }}>
       <div className="animate-pulse-glow" style={{
@@ -42,12 +46,24 @@ function MetricCard({ label, value, sub, icon: Icon, color }: any) {
   );
 }
 
-const CUSTOM_TOOLTIP = ({ active, payload, label }: any) => {
+interface TooltipPayloadItem {
+  name: string;
+  value: number | string;
+  color: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
+const CUSTOM_TOOLTIP = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="glass-card" style={{ padding: "10px 14px", fontSize: 13 }}>
         <div style={{ fontWeight: 700, marginBottom: 4 }}>{label}</div>
-        {payload.map((p: any) => (
+        {payload.map((p: TooltipPayloadItem) => (
           <div key={p.name} style={{ color: p.color }}>
             {p.name}: <strong>{p.value}</strong>
           </div>
@@ -58,21 +74,31 @@ const CUSTOM_TOOLTIP = ({ active, payload, label }: any) => {
   return null;
 };
 
+interface SummaryData {
+  total_scans?: number;
+  total_assets?: number;
+  risk_breakdown?: Record<string, number>;
+  daily_trend?: Array<{ date: string; scans: number }>;
+  top_assets?: Array<{ target: string; scan_count: number }>;
+  top_tools?: Array<{ tool: string; count: number }>;
+}
+
 export default function ReportsPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const token = Cookies.get("token");
 
-  const fetchData = () => {
+  const fetchData = useCallback(() => {
     if (!token) { window.location.href = "/"; return; }
-    setLoading(true);
     fetch(`${API}/api/reports/summary`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  };
+  }, [token]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+  }, [fetchData]);
 
   const riskData = data?.risk_breakdown
     ? Object.entries(data.risk_breakdown).map(([k, v]) => ({ name: k, value: v as number, color: RISK_COLORS[k] }))
@@ -183,7 +209,7 @@ export default function ReportsPage() {
                       <Cell key={entry.name} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: any, n: any) => [v, n]} />
+                  <Tooltip formatter={(v: unknown, n: unknown) => [String(v), String(n)]} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
@@ -206,10 +232,10 @@ export default function ReportsPage() {
             </div>
             {data?.top_assets && data.top_assets.length > 0 ? (
               <div>
-                {data.top_assets.map((asset: any, i: number) => {
-                  const pct = data.top_assets[0].scan_count > 0 ? (asset.scan_count / data.top_assets[0].scan_count) * 100 : 0;
+                {data.top_assets.map((asset, i) => {
+                  const pct = (data.top_assets?.[0]?.scan_count || 0) > 0 ? (asset.scan_count / (data.top_assets?.[0]?.scan_count || 1)) * 100 : 0;
                   return (
-                    <div key={i} style={{ padding: "14px 24px", borderBottom: i < data.top_assets.length - 1 ? "1px solid var(--border)" : "none" }}>
+                    <div key={asset.target} style={{ padding: "14px 24px", borderBottom: i < (data.top_assets?.length || 0) - 1 ? "1px solid var(--border)" : "none" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
                           {asset.target}
@@ -243,7 +269,7 @@ export default function ReportsPage() {
                   <YAxis type="category" dataKey="tool" tick={{ fill: "var(--text-secondary)", fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} width={72} />
                   <Tooltip content={<CUSTOM_TOOLTIP />} />
                   <Bar dataKey="count" radius={[0, 6, 6, 0]}>
-                    {data.top_tools.map((_: any, i: number) => (
+                    {data.top_tools.map((_, i) => (
                       <Cell key={i} fill={TOOL_COLORS[i % TOOL_COLORS.length]} />
                     ))}
                   </Bar>

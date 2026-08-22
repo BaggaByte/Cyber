@@ -1,32 +1,32 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Cookies from "js-cookie";
-import { Calendar, Plus, Clock, Target, Play } from "lucide-react";
+import { Calendar, Plus, Clock, Target } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
 const API = "";
 
 export default function SchedulePage() {
-  const [schedules, setSchedules] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<Record<string, unknown>[]>([]);
   const [target, setTarget] = useState("");
   const [tool, setTool] = useState("nmap");
   const [cron, setCron] = useState("0 0 * * *"); // Default daily
   const [loading, setLoading] = useState(false);
   const token = Cookies.get("token");
 
-  const fetchSchedules = () => {
+  const fetchSchedules = useCallback(() => {
     fetch(`${API}/api/scans/schedule`, {
       headers: { "Authorization": `Bearer ${token}` }
     })
       .then(res => res.json())
       .then(data => setSchedules(Array.isArray(data) ? data : []))
       .catch(console.error);
-  };
+  }, [token]);
 
   useEffect(() => {
     if (!token) { window.location.href = "/"; return; }
     fetchSchedules();
-  }, [token]);
+  }, [token, fetchSchedules]);
 
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();

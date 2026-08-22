@@ -3,15 +3,42 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import {
-  Shield, Target, Clock, CheckCircle, XCircle, Activity,
-  AlertTriangle, Crosshair, ChevronRight, ArrowLeft,
-  Cpu, Lock, Server, Zap, BrainCircuit
+  CheckCircle, XCircle, Activity,
+  Crosshair, ChevronRight, ArrowLeft,
+  Cpu, BrainCircuit, Clock
 } from "lucide-react";
 import Sidebar from "../../components/Sidebar";
 
 const API = "";
 
-function ScanRow({ scan, onClick }: { scan: any; onClick: () => void }) {
+interface ScanItem {
+  scan_id: string;
+  tool_used?: string;
+  risk_score?: string;
+  status?: string;
+}
+
+interface MissionLog {
+  agent?: string;
+  action?: string;
+  timestamp?: string;
+  details?: string;
+  reason?: string;
+  confidence?: string;
+}
+
+interface MissionDetail {
+  mission_id?: string;
+  goal?: string;
+  target?: string;
+  status?: string;
+  created_at?: string;
+  decision_log?: MissionLog[];
+  scans?: ScanItem[];
+  detail?: string;
+}
+
+function ScanRow({ scan, onClick }: { scan: ScanItem; onClick: () => void }) {
   return (
     <tr onClick={onClick} style={{ cursor: "pointer", borderTop: "1px solid var(--border)" }}
       onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-card-hover)")}
@@ -48,7 +75,7 @@ export default function MissionDetailPage() {
   const router = useRouter();
   const missionId = params?.id;
   const token = Cookies.get("token");
-  const [mission, setMission] = useState<any>(null);
+  const [mission, setMission] = useState<MissionDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,11 +83,41 @@ export default function MissionDetailPage() {
     if (!missionId) return;
     const h = { Authorization: `Bearer ${token}` };
 
-    fetch(`${API}/api/missions/${missionId}`, { headers: h })
+    // Fetch initial mission data
+    fetch(`/api/missions/${missionId}`, { headers: h })
       .then(r => r.json())
-      .then(data => { setMission(data); setLoading(false); })
+      .then(data => { 
+        setMission(data); 
+        setLoading(false); 
+        
+        // Only start SSE if the mission is running
+        if (data.status === 'running') {
+          const eventSource = new EventSource(`/api/missions/${missionId}/stream`);
+          eventSource.onmessage = (event) => {
+            const update = JSON.parse(event.data);
+            setMission(prev => {
+              if (!prev) return prev;
+              const newLog = {
+                action: update.message,
+                timestamp: update.timestamp,
+                reason: "Real-time SSE update",
+                confidence: "High"
+              };
+              return {
+                ...prev,
+                status: update.status,
+                decision_log: [...(prev.decision_log || []), newLog]
+              };
+            });
+            if (update.status === 'completed' || update.status === 'failed') {
+              eventSource.close();
+            }
+          };
+          return () => eventSource.close();
+        }
+      })
       .catch(() => setLoading(false));
-  }, [missionId, token]);
+  }, [missionId, token, router]);
 
   if (loading) return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -122,7 +179,7 @@ export default function MissionDetailPage() {
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Started At</div>
             <div style={{ fontSize: 15, color: "var(--text-primary)", fontWeight: 600 }}>
-              {new Date(mission.created_at).toLocaleString()}
+              {mission.created_at ? new Date(mission.created_at).toLocaleString() : "Unknown"}
             </div>
           </div>
         </div>
@@ -143,7 +200,7 @@ export default function MissionDetailPage() {
               <div style={{ position: "absolute", top: 8, bottom: 0, left: 16, width: 2, background: "var(--border)" }} />
               
               <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                {logs.map((log: any, idx: number) => (
+                {logs.map((log: MissionLog, idx: number) => (
                   <div key={idx} style={{ position: "relative", paddingLeft: 24 }}>
                     {/* Node dot */}
                     <div style={{
@@ -155,7 +212,7 @@ export default function MissionDetailPage() {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{log.action}</div>
                         <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "'JetBrains Mono', monospace" }}>
-                          {new Date(log.timestamp).toLocaleTimeString()}
+                          {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "Unknown"}
                         </div>
                       </div>
                       <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
@@ -199,7 +256,7 @@ export default function MissionDetailPage() {
                   {scans.length === 0 ? (
                     <tr><td colSpan={4} style={{ padding: 30, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No tasks executed yet.</td></tr>
                   ) : (
-                    scans.map((scan: any) => (
+                    scans.map((scan: ScanItem) => (
                       <ScanRow key={scan.scan_id} scan={scan} onClick={() => router.push(`/scans/${scan.scan_id}`)} />
                     ))
                   )}

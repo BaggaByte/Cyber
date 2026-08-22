@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Sun, Moon, Monitor } from "lucide-react";
 
-export default function ThemeSwitcher() {
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
-  const [mounted, setMounted] = useState(false);
+const emptySubscribe = () => () => {};
 
-  useEffect(() => {
-    const savedTheme = (localStorage.getItem("theme") as "light" | "dark" | "system") || "system";
-    setTheme(savedTheme);
-    setMounted(true);
-  }, []);
+export default function ThemeSwitcher() {
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+  const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("theme") as "light" | "dark" | "system") || "system";
+    }
+    return "system";
+  });
 
   const changeTheme = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);

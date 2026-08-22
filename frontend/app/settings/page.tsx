@@ -2,14 +2,21 @@
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import {
-  User, Building, Shield, Bell, Webhook, Key, Save, CheckCircle,
-  AlertTriangle, Eye, EyeOff, Cpu, Globe, Clock, LogOut
+  Building, Bell, Key, Save, CheckCircle,
+  AlertTriangle, Eye, EyeOff, Cpu, LogOut
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
 const API = "";
 
-function SettingSection({ title, description, icon: Icon, children }: any) {
+interface SettingSectionProps {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}
+
+function SettingSection({ title, description, icon: Icon, children }: SettingSectionProps) {
   return (
     <div className="glass-card" style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
       <div style={{ padding: "20px 28px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
@@ -26,7 +33,13 @@ function SettingSection({ title, description, icon: Icon, children }: any) {
   );
 }
 
-function FormRow({ label, hint, children }: any) {
+interface FormRowProps {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}
+
+function FormRow({ label, hint, children }: FormRowProps) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 24, alignItems: "start", paddingBottom: 20, marginBottom: 20, borderBottom: "1px solid var(--border)" }}>
       <div>
@@ -59,35 +72,49 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   );
 }
 
+interface NotifsState {
+  slackEnabled: boolean;
+  slackWebhook: string;
+  teamsEnabled: boolean;
+  teamsWebhook: string;
+  emailAlerts: boolean;
+  criticalOnly: boolean;
+}
+
 export default function SettingsPage() {
   const token = Cookies.get("token");
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
 
   // Notification settings (stored locally for now)
-  const [notifs, setNotifs] = useState({
-    slackEnabled: false,
-    slackWebhook: "",
-    teamsEnabled: false,
-    teamsWebhook: "",
-    emailAlerts: true,
-    criticalOnly: false,
+  const [notifs, setNotifs] = useState<NotifsState>(() => {
+    if (typeof window === "undefined") {
+      return { slackEnabled: false, slackWebhook: "", teamsEnabled: false, teamsWebhook: "", emailAlerts: true, criticalOnly: false };
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem("sentinelai_settings") || "{}");
+      return {
+        slackEnabled: false,
+        slackWebhook: "",
+        teamsEnabled: false,
+        teamsWebhook: "",
+        emailAlerts: true,
+        criticalOnly: false,
+        ...(saved.notifs || {}),
+      };
+    } catch {
+      return { slackEnabled: false, slackWebhook: "", teamsEnabled: false, teamsWebhook: "", emailAlerts: true, criticalOnly: false };
+    }
   });
 
   // Security settings
   const [showKey, setShowKey] = useState(false);
-  const [apiKey] = useState("sentinelai_sk_" + Array.from({ length: 24 }, () => Math.random().toString(36)[2]).join(""));
+  const [apiKey] = useState("sentinelai_sk_9f8e7d6c5b4a3f2e1d0c9b8a");
 
   useEffect(() => {
     if (!token) { window.location.href = "/"; return; }
     fetch(`${API}/api/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(setProfile).catch(console.error);
-
-    // Load saved settings
-    try {
-      const saved = JSON.parse(localStorage.getItem("sentinelai_settings") || "{}");
-      if (saved.notifs) setNotifs(n => ({ ...n, ...saved.notifs }));
-    } catch {}
   }, [token]);
 
   const saveSettings = () => {
@@ -265,7 +292,7 @@ export default function SettingsPage() {
               {[
                 { label: "Platform", value: "SentinelAI Enterprise v1.0" },
                 { label: "Backend", value: "FastAPI + Celery + LangGraph" },
-                { label: "AI Engine", value: "Groq / Llama 3.1-8b + CrewAI" },
+                { label: "AI Engine", value: "Ollama / Llama 3.1-8b + CrewAI" },
                 { label: "Database", value: "PostgreSQL + PGVector + Neo4j" },
                 { label: "Observability", value: "Prometheus + Grafana + Loki" },
                 { label: "Tools Registry", value: "13 security tools active" },

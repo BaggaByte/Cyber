@@ -9,6 +9,7 @@ import {
   Calendar, ChevronRight, Crosshair
 } from "lucide-react";
 import ThemeSwitcher from "./ThemeSwitcher";
+import { useChatStore } from "../../store/useChatStore";
 
 const NAV = [
   { href: "/dashboard",   label: "Dashboard",      icon: LayoutDashboard },
@@ -17,14 +18,22 @@ const NAV = [
   { href: "/assets",      label: "Assets",         icon: Target },
   { href: "/schedule",    label: "Scheduling",     icon: Calendar },
   { href: "/orchestrate", label: "AI Orchestrate", icon: BrainCircuit },
+  { href: "/aegis",       label: "Aegis SAST",      icon: Shield },
+  { href: "/nexus",       label: "Nexus GRC",       icon: Activity },
   { href: "/chat",        label: "AI Copilot",     icon: MessageSquare },
   { href: "/reports",     label: "Reports",        icon: BarChart2 },
   { href: "/settings",    label: "Settings",       icon: Settings },
 ];
 
+interface UserProfile {
+  email?: string;
+  role?: string;
+  org_name?: string;
+}
+
 export default function Sidebar() {
   const path = usePathname();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const token = Cookies.get("token");
@@ -97,6 +106,38 @@ export default function Sidebar() {
       <nav style={{ flex: 1, padding: "0 10px", display: "flex", flexDirection: "column", gap: 2 }}>
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = path === href || path.startsWith(href + "/");
+
+          if (href === "/chat") {
+            return (
+              <button
+                key={href}
+                onClick={() => useChatStore.getState().toggleDrawer()}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "9px 12px", borderRadius: 8,
+                  background: "transparent",
+                  border: "none", color: "#64748b",
+                  fontSize: 13, fontWeight: 400,
+                  transition: "all 0.15s ease",
+                  borderLeft: "2px solid transparent",
+                  cursor: "pointer", fontFamily: "inherit", textAlign: "left"
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#cbd5e1";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#64748b";
+                }}
+              >
+                <Icon size={15} style={{ flexShrink: 0 }} color="currentColor" />
+                <span style={{ flex: 1 }}>{label}</span>
+                <span style={{ fontSize: 9, opacity: 0.6, background: "rgba(255,255,255,0.1)", padding: "2px 4px", borderRadius: 4 }}>⌘K</span>
+              </button>
+            );
+          }
+
           return (
             <Link
               key={href}

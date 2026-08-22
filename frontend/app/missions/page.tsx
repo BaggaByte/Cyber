@@ -2,12 +2,20 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import { Target, ChevronRight, Activity, ExternalLink, Crosshair } from "lucide-react";
+import { ExternalLink, Crosshair } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
 const API = "";
 
-function MissionRow({ mission, onClick }: { mission: any; onClick: () => void }) {
+interface MissionItem {
+  mission_id: string;
+  target?: string;
+  goal?: string;
+  scan_count?: number;
+  created_at: string;
+}
+
+function MissionRow({ mission, onClick }: { mission: MissionItem; onClick: () => void }) {
   return (
     <tr onClick={onClick} style={{ cursor: "pointer", borderTop: "1px solid var(--border)" }}
       onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-card-hover)")}
@@ -38,7 +46,7 @@ function MissionRow({ mission, onClick }: { mission: any; onClick: () => void })
 }
 
 export default function MissionsPage() {
-  const [missions, setMissions] = useState<any[]>([]);
+  const [missions, setMissions] = useState<MissionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const token = Cookies.get("token");
   const router = useRouter();

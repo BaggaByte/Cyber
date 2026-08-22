@@ -1,25 +1,23 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
+  // Rewrite /api/* -> FastAPI backend (works inside Docker via service name)
   async rewrites() {
-    return [
-      {
-        source: '/api/aegis-raw/:path*',
-        destination: 'http://localhost:8080/:path*',
-      },
-      {
-        source: '/api/nexus-raw/:path*',
-        destination: 'http://localhost:5173/:path*',
-      },
-      {
-        source: '/assets/:path*',
-        destination: 'http://localhost:5173/assets/:path*',
-      },
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
-      },
-    ]
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://api:8000";
+    const aegisUrl = process.env.AEGIS_URL || "http://aegis-backend:8001";
+    return {
+      fallback: [
+        {
+          source: "/api/:path*",
+          destination: `${backendUrl}/:path*`,
+        },
+        {
+          source: "/aegis-api/:path*",
+          destination: `${aegisUrl}/:path*`,
+        },
+      ]
+    };
   },
 };
 

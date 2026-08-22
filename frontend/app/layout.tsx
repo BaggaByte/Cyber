@@ -1,9 +1,21 @@
 import type { Metadata } from "next";
+import { Toaster } from "sonner";
+import { Providers } from "./Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "SentinelAI — Autonomous Cybersecurity Platform",
   description: "AI-powered attack surface mapping, vulnerability scanning, and autonomous threat response.",
+  openGraph: {
+    title: "SentinelAI",
+    description: "Autonomous Cybersecurity Platform",
+    url: "https://sentinel.ai",
+    siteName: "SentinelAI",
+    type: "website",
+  },
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -29,7 +41,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           `
         }} />
       </head>
-      <body className="antialiased min-h-screen relative">{children}</body>
+      <body className="antialiased min-h-screen relative">
+        <Providers>
+          {children}
+          <Toaster theme="dark" position="bottom-right" />
+        </Providers>
+      </body>
     </html>
   );
 }
+

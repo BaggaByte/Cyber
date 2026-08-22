@@ -1,13 +1,14 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import {
-  Shield, Target, Clock, CheckCircle, XCircle, Activity,
+  Shield, Clock, CheckCircle, XCircle, Activity,
   AlertTriangle, Terminal, Ticket, ChevronRight, ArrowLeft,
   Cpu, Globe, Lock, Server, Zap, FileText, Copy, ExternalLink,
-  Download, Link as LinkIcon, Key
+  Download, Link as LinkIcon
 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import Sidebar from "../../components/Sidebar";
 
@@ -74,7 +75,14 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function FindingCard({ title, items, icon: Icon, color }: any) {
+interface FindingCardProps {
+  title: string;
+  items?: unknown[];
+  icon: React.ElementType;
+  color: string;
+}
+
+function FindingCard({ title, items, icon: Icon, color }: FindingCardProps) {
   if (!items || items.length === 0) return null;
   return (
     <div className="glass-card" style={{ padding: 20 }}>
@@ -93,25 +101,28 @@ function FindingCard({ title, items, icon: Icon, color }: any) {
         }}>{items.length}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {items.slice(0, 10).map((item: any, i: number) => (
-          <div key={i} style={{
-            padding: "10px 12px", borderRadius: 8,
-            background: "var(--bg-base)", border: "1px solid var(--border)",
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
-            color: "var(--text-primary)", lineHeight: 1.6,
-          }}>
-            {typeof item === "object" ? (
-              <div>
-                {item.port && <span style={{ color, fontWeight: 700 }}>{item.port}/{item.protocol} </span>}
-                {item.service && <span style={{ color: "var(--text-secondary)" }}>{item.service}</span>}
-                {item.version && <span style={{ color: "var(--text-muted)" }}> v{item.version}</span>}
-                {!item.port && <span>{JSON.stringify(item)}</span>}
-              </div>
-            ) : (
-              <span>{String(item)}</span>
-            )}
-          </div>
-        ))}
+        {items.slice(0, 10).map((item: unknown, i: number) => {
+          const obj = item as Record<string, unknown> | null;
+          return (
+            <div key={i} style={{
+              padding: "10px 12px", borderRadius: 8,
+              background: "var(--bg-base)", border: "1px solid var(--border)",
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+              color: "var(--text-primary)", lineHeight: 1.6,
+            }}>
+              {typeof item === "object" && item !== null ? (
+                <div>
+                  {obj?.port !== undefined && <span style={{ color, fontWeight: 700 }}>{String(obj.port)}/{String(obj.protocol || "tcp")} </span>}
+                  {obj?.service !== undefined && <span style={{ color: "var(--text-secondary)" }}>{String(obj.service)}</span>}
+                  {obj?.version !== undefined && <span style={{ color: "var(--text-muted)" }}> v{String(obj.version)}</span>}
+                  {obj?.port === undefined && <span>{JSON.stringify(item)}</span>}
+                </div>
+              ) : (
+                <span>{String(item)}</span>
+              )}
+            </div>
+          );
+        })}
         {items.length > 10 && (
           <div style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", paddingTop: 4 }}>
             +{items.length - 10} more findings
@@ -127,10 +138,11 @@ export default function ScanDetailPage() {
   const router = useRouter();
   const scanId = params?.id;
   const token = Cookies.get("token");
-  const [scan, setScan] = useState<any>(null);
-  const [response, setResponse] = useState<any>(null);
+  const [scan, setScan] = useState<Record<string, unknown> | null>(null);
+  const [response, setResponse] = useState<Record<string, unknown> | null>(null);
   const [activeTab, setActiveTab] = useState<"findings" | "remediation" | "script" | "ticket">("findings");
   const [loading, setLoading] = useState(true);
+  const parentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!token) { router.push("/"); return; }
@@ -138,14 +150,46 @@ export default function ScanDetailPage() {
     const h = { Authorization: `Bearer ${token}` };
 
     Promise.all([
-      fetch(`${API}/api/scans/${scanId}`, { headers: h }).then(r => r.json()),
-      fetch(`${API}/api/scans/${scanId}/response`, { headers: h }).then(r => r.json()),
+      fetch(`/api/scans/${scanId}`, { headers: h }).then(r => r.json()),
+      fetch(`/api/scans_response/${scanId}`, { headers: h }).then(r => r.json()),
     ]).then(([scanData, responseData]) => {
       setScan(scanData);
       setResponse(responseData);
       setLoading(false);
+      
+      // Start SSE if scan is running
+      if (scanData.status === 'running' || scanData.status === 'queued') {
+        const eventSource = new EventSource(`/api/scans/${scanId}/stream`);
+        eventSource.onmessage = (event) => {
+          const update = JSON.parse(event.data);
+          setScan(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              status: update.status,
+              findings: {
+                ...(prev.findings as Record<string, unknown> || {}),
+                raw_output: ((prev.findings as Record<string, unknown>)?.raw_output || "") + `\n[${update.timestamp}] ${update.message}`
+              }
+            };
+          });
+          if (update.status === 'completed' || update.status === 'failed') {
+            eventSource.close();
+          }
+        };
+        return () => eventSource.close();
+      }
     }).catch(() => setLoading(false));
-  }, [scanId, token]);
+  }, [scanId, token, router]);
+
+  // ── Hooks MUST be called before any early returns (Rules of Hooks) ──
+  const rawLines = ((scan?.findings as Record<string, any>)?.raw_output ?? "").split("\n").filter(Boolean);
+  const rowVirtualizer = useVirtualizer({
+    count: rawLines.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 20,
+    overscan: 10,
+  });
 
   if (loading) return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -172,8 +216,8 @@ export default function ScanDetailPage() {
     </div>
   );
 
-  const findings = scan.findings || {};
-  const risk = scan.risk_score || "INFO";
+  const findings = (scan.findings as Record<string, any>) || {};
+  const risk = (scan.risk_score as string) || "INFO";
   const riskCfg = RISK_CONFIG[risk] || RISK_CONFIG.INFO;
   const tabs = [
     { id: "findings", label: "Findings", icon: Shield },
@@ -181,6 +225,7 @@ export default function ScanDetailPage() {
     ...(response?.script ? [{ id: "script", label: "Auto-Script", icon: Terminal }] : []),
     ...(response?.ticket_payload ? [{ id: "ticket", label: "Jira Ticket", icon: Ticket }] : []),
   ];
+
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -197,7 +242,7 @@ export default function ScanDetailPage() {
             <ArrowLeft size={14} /> Scan History
           </button>
           <ChevronRight size={14} />
-          <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>Scan #{scan.scan_id}</span>
+          <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>Scan #{String(scan.scan_id)}</span>
         </div>
 
         {/* Hero Row: Target + Risk Gauge + Meta */}
@@ -258,7 +303,7 @@ export default function ScanDetailPage() {
 
         {/* Tab Navigation */}
         <div className="animate-slide-up delay-200" style={{ display: "flex", gap: 4, marginBottom: 20, padding: "4px", background: "var(--bg-base)", borderRadius: 10, border: "1px solid var(--border)", width: "fit-content" }}>
-          {tabs.map(({ id, label, icon: Icon }: any) => (
+          {tabs.map(({ id, label, icon: Icon }: { id: string; label: string; icon: React.ElementType }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -377,7 +422,7 @@ export default function ScanDetailPage() {
                           Certificate Issues
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {certVulns.map((v: any, i: number) => {
+                          {certVulns.map((v: Record<string, unknown>, i: number) => {
                             const sColor = v.severity === "CRITICAL" ? "var(--red)" : v.severity === "HIGH" ? "var(--amber)" : "var(--accent-primary)";
                             return (
                               <div key={i} style={{ padding: "10px 14px", borderRadius: 8, background: `${sColor}08`, border: `1px solid ${sColor}25`, display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -402,23 +447,49 @@ export default function ScanDetailPage() {
 
               {/* Raw Output fallback */}
               {!findings.open_ports && !findings.discovered_subdomains && (
-                <div className="glass-card" style={{ padding: 20, gridColumn: "1/-1" }}>
+                <div className="glass-card" style={{ padding: 20, gridColumn: "1/-1", background: "#0d1117" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <Terminal size={16} color="var(--text-secondary)" />
-                      <span style={{ fontWeight: 700, fontSize: 14 }}>Raw Output</span>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: "#e2e8f0" }}>Raw Output</span>
                     </div>
                     {findings.raw_output && <CopyButton text={findings.raw_output} />}
                   </div>
-                  <pre style={{
-                    background: "#0f172a", color: "#e2e8f0",
-                    padding: 16, borderRadius: 8,
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
-                    overflowX: "auto", maxHeight: 400, lineHeight: 1.6,
-                    whiteSpace: "pre-wrap", wordBreak: "break-all",
+                  
+                  <div ref={parentRef} style={{
+                    height: 400, overflow: "auto",
+                    background: "#0d1117", border: "1px solid var(--border)", borderRadius: 8,
                   }}>
-                    {findings.raw_output || JSON.stringify(findings, null, 2) || "No output available."}
-                  </pre>
+                    {rawLines.length > 0 ? (
+                      <div style={{
+                        height: `${rowVirtualizer.getTotalSize()}px`,
+                        width: '100%', position: 'relative',
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#e2e8f0"
+                      }}>
+                        {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+                          <div
+                            key={virtualRow.index}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: `${virtualRow.size}px`,
+                              transform: `translateY(${virtualRow.start}px)`,
+                              whiteSpace: "pre-wrap", wordBreak: "break-all",
+                              paddingLeft: 16, paddingRight: 16,
+                            }}
+                          >
+                            {rawLines[virtualRow.index]}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ padding: 16, color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                        {JSON.stringify(findings, null, 2) || "No output available."}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -445,7 +516,7 @@ export default function ScanDetailPage() {
                   </div>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 16 }}>AI Security Report</div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Generated by Llama 3.1 via Groq</div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Generated by Llama 3.1 via Ollama</div>
                   </div>
                 </div>
                 <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: riskCfg.bg, color: riskCfg.color, border: `1px solid ${riskCfg.border}` }}>

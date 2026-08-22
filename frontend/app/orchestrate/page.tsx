@@ -1,16 +1,15 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import {
-  BrainCircuit, Zap, ChevronRight, Loader, Shield,
+  BrainCircuit, Zap, ChevronRight, Loader,
   Globe, Server, Search, Bug, Package, Crosshair,
-  CheckCircle, ExternalLink, Terminal, Wifi, Code, Database, Lock
+  CheckCircle, ExternalLink, Code, Lock
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
-const API = "";
-
+import { toast } from "sonner";
 const TOOL_CATALOG = [
   {
     category: "Port Scanning",
@@ -100,11 +99,18 @@ function ToolBadge({ text, color }: { text: string; color: string }) {
   );
 }
 
+interface OrchestrationResult {
+  mission_id?: string;
+  planner_reasoning?: string;
+  tasks_dispatched?: number;
+  scans?: Array<{ scan_id: string; tool?: string; target?: string; risk_score?: string; status?: string }>;
+}
+
 export default function OrchestratePage() {
   const [goal, setGoal]       = useState("");
   const [target, setTarget]   = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult]   = useState<any>(null);
+  const [result, setResult]   = useState<OrchestrationResult | null>(null);
   const [error, setError]     = useState("");
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const router = useRouter();
@@ -116,15 +122,19 @@ export default function OrchestratePage() {
     setLoading(true); setResult(null); setError("");
 
     try {
-      const res = await fetch(`${API}/api/orchestrate`, {
+      const res = await fetch(`/api/orchestrate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ goal, target }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Orchestration failed"); }
-      setResult(await res.json());
-    } catch (err: any) {
-      setError(err.message);
+      const data = await res.json();
+      setResult(data);
+      toast.success("Agentic swarm deployed successfully!");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -233,7 +243,7 @@ export default function OrchestratePage() {
                 )}
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {result.scans?.map((s: any, i: number) => (
+                  {result.scans?.map((s, i) => (
                     <div key={s.scan_id} style={{
                       display: "flex", alignItems: "center", gap: 12,
                       background: "var(--bg-base)", borderRadius: 8, padding: "12px 16px",

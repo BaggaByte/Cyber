@@ -1,22 +1,39 @@
 "use client";
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
+import { useQuery } from "@tanstack/react-query";
 import { Target, ExternalLink } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
 const API = "";
 
-export default function AssetsPage() {
-  const [assets, setAssets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const token = Cookies.get("token");
+interface AssetItem {
+  asset_id: string;
+  target?: string;
+  asset_type?: string;
+  scan_count?: number;
+  last_risk_score?: string;
+  discovered_at?: string;
+}
 
-  useEffect(() => {
-    if (!token) { window.location.href = "/"; return; }
-    fetch(`${API}/api/assets`, { headers: { "Authorization": `Bearer ${token}` } })
-      .then(r => r.json()).then(data => { setAssets(Array.isArray(data) ? data : []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [token]);
+export default function AssetsPage() {
+  const token = Cookies.get("token");
+  
+  const { data: assets = [], isLoading: loading } = useQuery({
+    queryKey: ['assets'],
+    queryFn: async () => {
+      const res = await fetch(`/api/assets`, { headers: { "Authorization": `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!token,
+  });
+
+  if (!token) {
+    if (typeof window !== 'undefined') window.location.href = "/";
+    return null;
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -98,7 +115,7 @@ export default function AssetsPage() {
               </div>
 
               <div style={{ marginTop: 12, fontSize: 11, color: "var(--text-muted)" }}>
-                Discovered {new Date(asset.discovered_at).toLocaleDateString()}
+                Discovered {asset.discovered_at ? new Date(asset.discovered_at).toLocaleDateString() : "Unknown"}
               </div>
             </div>
           ))}
