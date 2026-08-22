@@ -1,7 +1,7 @@
 import os
-import time
 import datetime
 import json
+import uuid
 from celery import Celery
 from database import SessionLocal
 import models
@@ -25,6 +25,32 @@ OPENSEARCH_URL = os.environ.get("OPENSEARCH_URL", "http://opensearch:9200")
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "sentinel_neo4j")
+
+# AI Config — uses Groq API (existing infra, no local model required)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama3-70b-8192")
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+def run_groq_chat(messages: list, label: str = "") -> str:
+    """
+    Calls the Groq API directly via requests.
+    Falls back to empty string on failure — the scan result is never blocked by AI.
+    """
+    if not GROQ_API_KEY:
+        return f"[AI {label} skipped — GROQ_API_KEY not set]"
+    try:
+        import requests as req
+        resp = req.post(
+            GROQ_API_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={"model": GROQ_MODEL, "messages": messages, "temperature": 0.3, "max_tokens": 1024},
+            timeout=60
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        print(f"[WARN] Groq {label} pass failed (non-fatal): {e}")
+        return f"[AI {label} failed: {e}]"
 
 def get_minio_client():
     try:
@@ -122,12 +148,43 @@ def run_recon_scan(self, scan_id: int, hostname: str):
             db.add(vuln)
             db.commit()
             db.refresh(vuln)
+
+        # AI Critic Pass (Ported from Aegis-AI)
+        critic_analysis = ""
+        try:
+            # 1. Analyzer Pass (Groq API)
+            print(f"Requesting Groq AI analysis for {hostname}...")
+            remediation_plan = run_groq_chat(
+                messages=[
+                    {"role": "system", "content": "You are Sentinel AI, a security advisor."},
+                    {"role": "user", "content": (
+                        f"Provide a remediation plan for the following finding.\n"
+                        f"Target: {hostname}\nVulnerability: {vuln.cve_id}\n"
+                        f"Details: {raw_details}\nProvide actionable steps to secure this target."
+                    )}
+                ],
+                label="Analyzer"
+            )
+
+            # 2. Critic Pass (second Groq call — validates the analyzer's output)
+            critic_response = run_groq_chat(
+                messages=[
+                    {"role": "system", "content": "You are a critical senior security engineer. Review the following remediation plan and flag any hallucinated or dangerous advice."},
+                    {"role": "user", "content": f"Plan to review:\n{remediation_plan}"}
+                ],
+                label="Critic"
+            )
+            critic_analysis = f"\n\n--- AI CRITIC REVIEW ---\n{critic_response}"
+
+        except Exception as ai_exc:
+            print(f"AI Critic pass failed (non-fatal): {ai_exc}")
+            critic_analysis = f"\n\n--- AI CRITIC REVIEW ---\nFailed: {ai_exc}"
             
         finding = models.Finding(
             target_id=scan.target_id,
             scan_id=scan.id,
             vulnerability_id=vuln.id,
-            details=f"Discovered open ports on {hostname}:\\n{raw_details}"
+            details=f"Discovered open ports on {hostname}:\\n{raw_details}{critic_analysis}"
         )
         db.add(finding)
         db.commit()
